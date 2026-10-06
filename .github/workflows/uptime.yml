@@ -1,4 +1,4 @@
-# Проверка на всеки 5 минути ВЪТРЕ в един дълъг job (~5.7 ч) — GitHub-овият
+# Проверка на всеки 10 минути ВЪТРЕ в един дълъг job (~5.7 ч) — GitHub-овият
 # cron е ненадежден за къси интервали, но трябва да уцели само ~4 пъти дневно,
 # за да има непрекъснато покритие. При провал job-ът излиза веднага:
 # червено пускане + имейл до собственика. Всеки прозорец се записва в LOG.md.
@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
-      - name: Check every 5 minutes for ~5.7h
+      - name: Check every 10 minutes for ~5.7h
         shell: bash
         run: |
           git config user.name uptime-bot
@@ -49,6 +49,6 @@ jobs:
               echo "::error::fleetmngmnt.com не отговаря (site=$site api=$api)"
               exit 1
             fi
-            sleep 300
+            sleep 600
           done
           append_log
