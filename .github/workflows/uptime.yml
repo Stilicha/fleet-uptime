@@ -1,33 +1,54 @@
+# Проверка на всеки 5 минути ВЪТРЕ в един дълъг job (~5.7 ч) — GitHub-овият
+# cron е ненадежден за къси интервали, но трябва да уцели само ~4 пъти дневно,
+# за да има непрекъснато покритие. При провал job-ът излиза веднага:
+# червено пускане + имейл до собственика. Всеки прозорец се записва в LOG.md.
 name: uptime
 on:
   schedule:
-    - cron: '*/5 * * * *'   # best effort — GitHub може да ги разрежда при натоварване
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check fleetmngmnt.com
-        run: |
-          site=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://fleetmngmnt.com/ || echo ERR)
-          api=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://fleetmngmnt.com/api/health || echo ERR)
-          echo "$(date -u +%FT%TZ) site=$site api=$api"
-          test "$site" = "200" -a "$api" = "200"
+concurrency:
+  group: uptime
+  cancel-in-progress: false
 
-      # графиците спират след 60 дни без комит в репото — веднъж месечно бутваме маркер
-      - name: Monthly keepalive
-        if: ${{ github.event_name == 'schedule' }}
+jobs:
+  check-loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check every 5 minutes for ~5.7h
         shell: bash
         run: |
-          if [ "$(date -u +%d)" = "01" ] && [ "$(date -u +%H%M)" \< "0015" ]; then
-            git clone --depth 1 "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ka
-            cd ka
-            date -u +%F > .keepalive
-            git config user.name "uptime-bot"
-            git config user.email "actions@users.noreply.github.com"
-            git add .keepalive && git commit -q -m "keepalive" && git push -q
-          fi
+          git config user.name uptime-bot
+          git config user.email actions@users.noreply.github.com
+
+          append_log() {
+            git pull --rebase -q || true
+            echo "| $start_ts | $(date -u +%FT%TZ) | $checks | $fails |" >> LOG.md
+            git add LOG.md
+            git commit -q -m "uptime window: $checks checks, $fails failed" || true
+            git push -q || true
+          }
+
+          start_ts=$(date -u +%FT%TZ)
+          checks=0; fails=0
+          end=$((SECONDS + 340*60))
+          while [ $SECONDS -lt $end ]; do
+            site=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://fleetmngmnt.com/ || echo ERR)
+            api=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://fleetmngmnt.com/api/health || echo ERR)
+            checks=$((checks+1))
+            echo "$(date -u +%FT%TZ) site=$site api=$api"
+            if [ "$site" != "200" ] || [ "$api" != "200" ]; then
+              fails=1
+              append_log
+              echo "::error::fleetmngmnt.com не отговаря (site=$site api=$api)"
+              exit 1
+            fi
+            sleep 300
+          done
+          append_log

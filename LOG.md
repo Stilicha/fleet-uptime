@@ -1,8 +1,8 @@
 # Дневник на наличността / Availability log
 
-Попълва се автоматично веднъж дневно от `daily-summary` workflow-а.
-Each row: UTC date, number of checks that day, failed checks.
+Всеки ред е един мониторингов прозорец (~5.7 часа, проверка на всеки 5 минути).
+Each row is one monitoring window (~5.7h, a check every 5 minutes).
+A failed check also turns the corresponding Actions run red and e-mails the owner.
 
-| Дата / Date | Проверки / Checks | Провали / Failures |
-|---|---|---|
-| 2026-10-06 | 1 | 0 |
+| От (UTC) | До (UTC) | Проверки / Checks | Провали / Failures |
+|---|---|---|---|
