@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: uptime
@@ -52,3 +53,14 @@ jobs:
             sleep 600
           done
           append_log
+
+      # веригата се самоподдържа: краят на прозореца стартира следващия;
+      # кронът остава само като резерва при скъсана верига
+      - name: Start next window
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -X POST -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/uptime.yml/dispatches" \
+            -d '{"ref":"main"}' -o /dev/null -w "next window dispatch: %{http_code}\n" 
