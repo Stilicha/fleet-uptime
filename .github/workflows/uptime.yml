@@ -61,6 +61,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # след провал: пауза, за да не се сипят червени пускания/имейли всяка минута
+          if [ "${{ job.status }}" != "success" ]; then sleep 600; fi
           curl -s -X POST -H "Authorization: token $GH_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/uptime.yml/dispatches" \
             -d '{"ref":"main"}' -o /dev/null -w "next window dispatch: %{http_code}\n" 
